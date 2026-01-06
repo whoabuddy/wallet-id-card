@@ -36,3 +36,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Ralph docs state (local only)
 ralph-docs.json
+
+# Jekyll
+docs/_site
+docs/.sass-cache
+docs/.jekyll-cache
+docs/.jekyll-metadata
+docs/Gemfile.lock
+docs/vendor
