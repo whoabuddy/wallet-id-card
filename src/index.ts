@@ -2,11 +2,50 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
 type Bindings = {
-  STX402_BASE: string
+  PAYMENT_ADDRESS: string
+  OPENAI_API_KEY?: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
 const HIRO_API = 'https://api.hiro.so'
+
+// Payment configuration
+const PAYMENT_CONTRACT = {
+  address: 'SPP5ZMH9NQDFD2K5CEQZ6P02AP8YPWMQ75TJW20M',
+  name: 'simple-oracle',
+}
+const CARD_PRICE = 1 // 1 microSTX for testing
+
+// Verify payment via Hiro API
+async function verifyPayment(txid: string): Promise<{ valid: boolean; sender?: string; error?: string }> {
+  try {
+    const normalizedTxid = txid.startsWith('0x') ? txid : `0x${txid}`
+    const response = await fetch(`${HIRO_API}/extended/v1/tx/${normalizedTxid}`)
+
+    if (!response.ok) {
+      return { valid: false, error: 'Transaction not found' }
+    }
+
+    const tx = await response.json() as any
+
+    if (tx.tx_status !== 'success') {
+      return { valid: false, error: `Transaction status: ${tx.tx_status}` }
+    }
+
+    if (tx.tx_type !== 'contract_call') {
+      return { valid: false, error: 'Not a contract call' }
+    }
+
+    const expectedContract = `${PAYMENT_CONTRACT.address}.${PAYMENT_CONTRACT.name}`
+    if (tx.contract_call?.contract_id !== expectedContract) {
+      return { valid: false, error: 'Wrong contract' }
+    }
+
+    return { valid: true, sender: tx.sender_address }
+  } catch (error) {
+    return { valid: false, error: `Verification failed: ${error}` }
+  }
+}
 
 app.use('*', cors())
 
@@ -116,31 +155,66 @@ Typography: Clean sans-serif, high contrast white text on dark.
 Overall feel: Exclusive crypto club membership, collectible, premium.`
 }
 
-// Generate image via stx402 AI endpoint
-async function generateImage(base: string, prompt: string): Promise<Response> {
-  const res = await fetch(`${base}/api/ai/generate-image`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, width: 1024, height: 576 })
-  })
-  return res
+// Generate image via OpenAI DALL-E
+async function generateImage(apiKey: string, prompt: string): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  if (!apiKey) {
+    return { success: false, error: 'Image generation not configured' }
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt,
+        n: 1,
+        size: '1792x1024',
+        quality: 'standard',
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json() as any
+      return { success: false, error: error.error?.message || 'Image generation failed' }
+    }
+
+    const data = await response.json() as any
+    return { success: true, imageUrl: data.data[0].url }
+  } catch (error) {
+    return { success: false, error: `Image generation error: ${error}` }
+  }
 }
 
 // Health check
 app.get('/', (c) => {
   return c.json({
     service: 'Wallet Identity Card',
-    version: '1.0.0',
-    description: 'Generate visual identity cards for Stacks wallets',
+    version: '2.0.0',
+    description: 'Generate AI-powered visual identity cards for Stacks wallets',
+    protocol: 'x402',
     endpoints: {
-      'GET /card/:address': 'Generate identity card image (requires x402 payment)',
+      'GET /card/:address': 'Generate identity card image (x402 payment required)',
       'GET /data/:address': 'Get raw wallet data as JSON (free)',
       'GET /prompt/:address': 'Preview the image generation prompt (free)'
     },
     pricing: {
-      '/card/:address': '0.001 STX (covers AI image generation)'
+      '/card/:address': {
+        price: CARD_PRICE,
+        token: 'STX',
+        display: `${CARD_PRICE / 1000000} STX`,
+        description: 'AI-generated wallet identity card'
+      }
     },
-    poweredBy: ['stx402.com', 'api.hiro.so']
+    payment: {
+      contract: `${PAYMENT_CONTRACT.address}.${PAYMENT_CONTRACT.name}`,
+      header: 'X-Payment',
+      network: 'mainnet',
+    },
+    poweredBy: ['x402', 'api.hiro.so', 'openai.com']
   })
 })
 
@@ -206,14 +280,51 @@ app.get('/prompt/:address', async (c) => {
   })
 })
 
-// Generate identity card image (PAID - uses stx402 for image gen)
+// Generate identity card image (PAID - x402 gated)
 app.get('/card/:address', async (c) => {
   const address = c.req.param('address')
-  const base = c.env.STX402_BASE
+  const paymentTxid = c.req.header('X-Payment')
 
   // Validate address format
   if (!address.match(/^S[PM][A-Z0-9]{38,40}$/)) {
     return c.json({ error: 'Invalid Stacks address format' }, 400)
+  }
+
+  // Check for payment
+  if (!paymentTxid) {
+    const nonce = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+
+    return c.json({
+      error: 'Payment Required',
+      code: 'PAYMENT_REQUIRED',
+      resource: `/card/${address}`,
+      payment: {
+        contract: `${PAYMENT_CONTRACT.address}.${PAYMENT_CONTRACT.name}`,
+        function: 'call-with-stx',
+        price: CARD_PRICE,
+        token: 'STX',
+        recipient: PAYMENT_CONTRACT.address,
+        network: 'mainnet',
+      },
+      instructions: [
+        '1. Call the contract function with STX payment',
+        '2. Wait for transaction confirmation',
+        '3. Retry request with X-Payment header containing txid',
+      ],
+      nonce,
+      expiresAt,
+      description: 'Generate AI-powered wallet identity card',
+    }, 402)
+  }
+
+  // Verify payment
+  const verification = await verifyPayment(paymentTxid)
+  if (!verification.valid) {
+    return c.json({
+      error: 'Payment verification failed',
+      details: verification.error,
+    }, 403)
   }
 
   // Fetch all wallet data in parallel from Hiro API (free)
@@ -233,38 +344,40 @@ app.get('/card/:address', async (c) => {
     topNfts: nftData.top
   }
 
-  // Build prompt and call stx402 image generation
+  // Build prompt and generate image
   const prompt = buildImagePrompt(walletData)
-  const imageRes = await generateImage(base, prompt)
+  const imageResult = await generateImage(c.env.OPENAI_API_KEY || '', prompt)
 
-  // If stx402 returns 402, pass it through (user needs to pay)
-  if (imageRes.status === 402) {
-    const paymentInfo = await imageRes.json()
+  if (!imageResult.success) {
     return c.json({
-      ...paymentInfo as object,
-      note: 'Pay to generate your wallet identity card',
+      error: 'Image generation failed',
+      details: imageResult.error,
       walletData,
-      prompt
-    }, 402)
-  }
-
-  if (!imageRes.ok) {
-    return c.json({
-      error: 'Failed to generate image',
-      status: imageRes.status,
-      walletData,
-      prompt
+      prompt,
+      payment_received: true,
+      payment_txid: paymentTxid,
     }, 500)
   }
 
-  const image = await imageRes.arrayBuffer()
+  // Fetch the generated image
+  const imageResponse = await fetch(imageResult.imageUrl!)
+  if (!imageResponse.ok) {
+    return c.json({
+      error: 'Failed to fetch generated image',
+      imageUrl: imageResult.imageUrl,
+      walletData,
+    }, 500)
+  }
+
+  const image = await imageResponse.arrayBuffer()
 
   return new Response(image, {
     headers: {
       'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=3600',
       'X-Wallet-Address': address,
-      'X-BNS-Name': bnsName || 'none'
+      'X-BNS-Name': bnsName || 'none',
+      'X-Payment-Verified': 'true',
     }
   })
 })

@@ -1,6 +1,7 @@
 name = "wallet-id-card"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+workers_dev = true
 
 [vars]
-STX402_BASE = "https://stx402.com"
+PAYMENT_ADDRESS = "SPP5ZMH9NQDFD2K5CEQZ6P02AP8YPWMQ75TJW20M"
