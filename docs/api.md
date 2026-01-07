@@ -1,12 +1,22 @@
 ---
 title: API Reference
 layout: default
-nav_order: 2
+nav_order: 3
 ---
+
+[← Home](./index.html) | **API Reference**
 
 # API Reference
 
-Base URL: `https://wallet-id-card.YOUR-WORKER.workers.dev`
+> Complete endpoint documentation for the Wallet Identity Card API.
+
+---
+
+## Base URL
+
+```
+https://wallet-id-card.YOUR-WORKER.workers.dev
+```
 
 ---
 
@@ -18,6 +28,7 @@ Base URL: `https://wallet-id-card.YOUR-WORKER.workers.dev`
 GET /
 ```
 
+{: .free }
 Returns service information and available endpoints.
 
 **Response**
@@ -47,7 +58,8 @@ Returns service information and available endpoints.
 GET /data/:address
 ```
 
-Returns raw wallet data as JSON. **Free endpoint.**
+{: .free }
+Returns raw wallet data as JSON.
 
 **Parameters**
 
@@ -86,7 +98,8 @@ Returns raw wallet data as JSON. **Free endpoint.**
 GET /prompt/:address
 ```
 
-Shows the AI prompt that will be used to generate the card. **Free endpoint.**
+{: .free }
+Shows the AI prompt that will be used to generate the card.
 
 **Parameters**
 
@@ -112,7 +125,8 @@ Shows the AI prompt that will be used to generate the card. **Free endpoint.**
 GET /card/:address
 ```
 
-Creates an AI-generated visual identity card. **Requires x402 payment.**
+{: .paid }
+Creates an AI-generated visual identity card. Requires x402 payment.
 
 **Parameters**
 
@@ -122,16 +136,15 @@ Creates an AI-generated visual identity card. **Requires x402 payment.**
 
 **Success Response**
 
-- **Status**: 200
-- **Content-Type**: `image/png`
-- **Headers**:
-  - `X-Wallet-Address`: The wallet address
-  - `X-BNS-Name`: The BNS name (or "none")
-  - `Cache-Control`: `public, max-age=3600`
+| Field | Value |
+|:------|:------|
+| Status | 200 |
+| Content-Type | `image/png` |
+| X-Wallet-Address | The wallet address |
+| X-BNS-Name | The BNS name (or "none") |
+| Cache-Control | `public, max-age=3600` |
 
-**Payment Required Response**
-
-- **Status**: 402
+**Payment Required Response (402)**
 
 ```json
 {
@@ -153,6 +166,7 @@ When you receive a 402 response, use the x402 protocol to make a micropayment an
 GET /openapi.json
 ```
 
+{: .free }
 Returns the OpenAPI 3.0 specification for this API.
 
 ---
@@ -165,17 +179,9 @@ Valid Stacks addresses match the pattern:
 ^S[PM][A-Z0-9]{38,40}$
 ```
 
-Examples:
+**Examples:**
 - Mainnet: `SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7`
 - Testnet: `ST2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7`
-
----
-
-## Rate Limits
-
-This API uses Cloudflare Workers. Standard Workers rate limits apply.
-
-The `/card` endpoint is additionally rate-limited by x402 payment requirements.
 
 ---
 
@@ -188,3 +194,7 @@ All errors return JSON with an `error` field:
   "error": "Invalid Stacks address format"
 }
 ```
+
+---
+
+*Updated: 2026-01-07*
