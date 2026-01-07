@@ -14,7 +14,7 @@ nav_order: 2
 
 | Item | Description |
 |:-----|:------------|
-| [`index.ts`](https://github.com/whoabuddy/wallet-id-card/blob/master/src/index.ts) | Main API entry point with all endpoint handlers |
+| [`index.ts`](https://github.com/pbtc21/wallet-id-card/blob/master/src/index.ts) | Main API entry point with all endpoint handlers |
 
 ## Architecture
 

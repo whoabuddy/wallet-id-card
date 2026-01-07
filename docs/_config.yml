@@ -2,11 +2,11 @@ title: Wallet Identity Card API
 description: Generate AI-powered visual identity cards for Stacks wallets
 theme: just-the-docs
 
-url: https://whoabuddy.github.io
+url: https://pbtc21.github.io
 baseurl: /wallet-id-card
 
 aux_links:
-  "View on GitHub": https://github.com/whoabuddy/wallet-id-card
+  "View on GitHub": https://github.com/pbtc21/wallet-id-card
 
 color_scheme: dark
 

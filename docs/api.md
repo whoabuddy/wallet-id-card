@@ -72,7 +72,7 @@ Returns raw wallet data as JSON.
 ```json
 {
   "address": "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7",
-  "bnsName": "whoabuddy.btc",
+  "bnsName": "satoshi.btc",
   "stxBalance": "1234.56",
   "ftBalances": [
     { "symbol": "WELSH", "balance": "100.00", "name": "WELSH" }
